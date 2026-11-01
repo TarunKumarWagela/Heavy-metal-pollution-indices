@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+{% block title %}Index Calculator{% endblock %}
+{% block page_title %}Pollution Index Calculator{% endblock %}
+{% block page_subtitle %}HPI · HEI · Degree of Contamination — scientifically documented groundwater indices{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <!-- Input Panel -->
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header-custom">
+        <i class="bi bi-input-cursor-text"></i>
+        <h5>Sample Input</h5>
+      </div>
+      <div class="p-3">
+        <!-- Standard Profile -->
+        <div class="mb-3">
+          <label class="form-label">Standard Profile</label>
+          <select class="form-select" id="standardProfile">
+            <option value="BIS IS 10500">BIS IS 10500:2012 (India)</option>
+            <option value="WHO GDWQ">WHO GDWQ 4th Ed. (2022)</option>
+          </select>
+        </div>
+
+        <!-- DB sample or manual -->
+        <ul class="nav nav-tabs nav-fill mb-3" id="inputTabs">
+          <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#manualTab">
+              <i class="bi bi-pencil-square me-1"></i>Manual Entry
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dbTab">
+              <i class="bi bi-database me-1"></i>From Database
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <!-- Manual Entry -->
+          <div class="tab-pane fade show active" id="manualTab">
+            <div class="alert-scientific alert mb-3" style="font-size:.75rem">
+              Enter measured concentrations in <b>mg/L</b>.
+              BDL measurements: leave blank or check "BDL" toggle.
+              Standards are loaded automatically from the selected profile.
+            </div>
+            <div id="metalInputs">
+              <!-- populated by JS -->
+            </div>
+            <button class="btn btn-sm btn-outline-secondary mb-3" onclick="toggleAllMetals()">
+              <i class="bi bi-grid-3x3-gap"></i> Toggle All Metals
+            </button>
+          </div>
+
+          <!-- From Database -->
+          <div class="tab-pane fade" id="dbTab">
+            <div class="mb-2">
+              <label class="form-label">Sample ID</label>
+              <div class="input-group">
+                <input type="number" class="form-control" id="dbSampleId" placeholder="Enter sample DB ID">
+                <button class="btn btn-outline-secondary" onclick="loadDbSample()">Load</button>
+              </div>
+            </div>
+            <div id="dbSamplePreview"></div>
+          </div>
+        </div>
+
+        <!-- Options -->
+        <div class="card mb-3" style="background:#F8FAFC">
+          <div class="p-2">
+            <label class="form-label mb-1 fw-600">Options</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="nonNegativeCd">
+              <label class="form-check-label small" for="nonNegativeCd">
+                Use non-negative Cd_index (max(CF,0) — non-Backman variant)
+              </label>
+            </div>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="extendedClassify">
+              <label class="form-check-label small" for="extendedClassify">
+                Use extended HPI classification (Prasad &amp; Bose 2001)
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary w-100" id="calcAllBtn">
+          <i class="bi bi-calculator-fill me-1"></i>Calculate HPI + HEI + Cd Index
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Panel -->
+  <div class="col-lg-7">
+    <div id="resultsArea">
+      <!-- placeholder -->
+      <div class="card text-center py-5" style="border:2px dashed var(--border)">
+        <div style="color:var(--text-muted)">
+          <i class="bi bi-calculator" style="font-size:2.5rem; display:block; margin-bottom:.75rem; color:var(--teal)"></i>
+          Enter measurements and click <b>Calculate</b> to see results here.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Methodology Reference -->
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header-custom">
+        <i class="bi bi-journal-text"></i>
+        <h5>Scientific Methodology Reference</h5>
+      </div>
+      <div class="p-3">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <h6 class="text-navy fw-600">Heavy Metal Pollution Index (HPI)</h6>
+            <div class="methodology-note">
+Wi = 1 / Si
+Qi = |Mi - Ii| / |Si - Ii| × 100
+HPI = Σ(Wi×Qi) / Σ(Wi)
+
+Effective contrib = (Wi×Qi) / Σ(Wi)
+% contrib = (Wi×Qi) / Σ(Wi×Qi) × 100
+            </div>
+            <small class="text-muted">Mohan et al. (1996). J. Environ. Sci. Health, 31(2), 283–289</small>
+          </div>
+          <div class="col-md-4">
+            <h6 class="text-navy fw-600">Heavy Metal Evaluation Index (HEI)</h6>
+            <div class="methodology-note">
+HEI = Σ (Hc_i / Hmac_i)
+
+Hc_i  = measured concentration
+Hmac_i = max acceptable concentration
+            </div>
+            <small class="text-muted">Edet &amp; Offiong (2002). GeoJournal, 57(4), 295–304</small>
+          </div>
+          <div class="col-md-4">
+            <h6 class="text-navy fw-600">Degree of Contamination (Cd Index)</h6>
+            <div class="methodology-note">
+CF_i = (C_A_i / C_N_i) - 1
+Cd_index = Σ CF_i
+
+⚠ Cd here = INDEX name, NOT cadmium element
+Signed (Backman 1998): preserves negative values
+            </div>
+            <small class="text-muted">Backman et al. (1998). Environ. Geology, 36(1–2), 55–64</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const METALS = ['Fe','As','U','Mn','Cu','Pb','Zn','Ni','Cd','Cr'];
+const BIS_DEFAULTS = {
+  Fe:0.3, As:0.05, Mn:0.3, Cu:1.5, Pb:0.05,
+  Zn:15.0, Ni:0.02, Cd:0.003, Cr:0.05, U:null,
+};
+let enabledMetals = new Set(['As','Pb','Cd','Cr','Mn','Cu','Ni']);
+
+function buildMetalInputs() {
+  const div = document.getElementById('metalInputs');
+  div.innerHTML = METALS.map(m => `
+    <div class="card mb-2" id="metalCard_${m}">
+      <div class="p-2">
+        <div class="d-flex align-items-center mb-1">
+          <div class="form-check form-switch mb-0 me-2">
+            <input class="form-check-input" type="checkbox" id="en_${m}"
+              ${enabledMetals.has(m)?'checked':''} onchange="toggleMetal('${m}')">
+          </div>
+          <label class="form-check-label fw-600" for="en_${m}" style="min-width:35px">${m}</label>
+          <div class="form-check ms-2 mb-0">
+            <input class="form-check-input" type="checkbox" id="bdl_${m}" onchange="handleBDL('${m}')">
+            <label class="form-check-label small text-muted" for="bdl_${m}">BDL</label>
+          </div>
+        </div>
+        <div class="row g-1" id="metalFields_${m}" ${!enabledMetals.has(m)?'style="display:none"':''}>
+          <div class="col-6">
+            <input type="number" step="any" class="form-control form-control-sm"
+              id="meas_${m}" placeholder="Measured (mg/L)" value="">
+          </div>
+          <div class="col-6">
+            <input type="number" step="any" class="form-control form-control-sm"
+              id="std_${m}" placeholder="Standard (mg/L)"
+              value="${BIS_DEFAULTS[m]||''}">
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleMetal(m) {
+  const checked = document.getElementById(`en_${m}`).checked;
+  const fields = document.getElementById(`metalFields_${m}`);
+  fields.style.display = checked ? '' : 'none';
+  if (checked) enabledMetals.add(m); else enabledMetals.delete(m);
+}
+
+function toggleAllMetals() {
+  const allEnabled = enabledMetals.size === METALS.length;
+  METALS.forEach(m => {
+    document.getElementById(`en_${m}`).checked = !allEnabled;
+    document.getElementById(`metalFields_${m}`).style.display = !allEnabled ? '' : 'none';
+    if (!allEnabled) enabledMetals.add(m); else enabledMetals.delete(m);
+  });
+}
+
+function handleBDL(m) {
+  const bdl = document.getElementById(`bdl_${m}`).checked;
+  document.getElementById(`meas_${m}`).disabled = bdl;
+  if (bdl) document.getElementById(`meas_${m}`).value = '';
+}
+
+// Update standards when profile changes
+document.getElementById('standardProfile').addEventListener('change', async function() {
+  const profile = this.value;
+  try {
+    const data = await apiGet(`/api/standards/profile/${encodeURIComponent(profile)}`);
+    data.forEach(s => {
+      const el = document.getElementById(`std_${s.metal}`);
+      if (el) {
+        const val = s.permissible_limit || s.guideline_value || s.acceptable_limit;
+        if (val) el.value = val;
+      }
+    });
+  } catch(e) { console.warn('Could not load standards', e); }
+});
+
+// ============================================================
+// Calculate
+// ============================================================
+document.getElementById('calcAllBtn').addEventListener('click', async () => {
+  const measurements = {};
+  const standards = {};
+  const bdl_flags = {};
+
+  for (const m of METALS) {
+    if (!enabledMetals.has(m)) continue;
+    const bdl = document.getElementById(`bdl_${m}`)?.checked;
+    if (bdl) { bdl_flags[m] = true; continue; }
+    const meas = parseFloat(document.getElementById(`meas_${m}`)?.value);
+    const std = parseFloat(document.getElementById(`std_${m}`)?.value);
+    if (!isNaN(meas) && !isNaN(std)) {
+      measurements[m] = meas;
+      standards[m] = std;
+    }
+  }
+
+  if (Object.keys(measurements).length === 0) {
+    alert('Please enter at least one metal measurement and its standard limit.');
+    return;
+  }
+
+  const nonNeg = document.getElementById('nonNegativeCd').checked;
+  const extClass = document.getElementById('extendedClassify').checked;
+
+  const resultsArea = document.getElementById('resultsArea');
+  resultsArea.innerHTML = '<div class="loading-spinner"><div class="spinner-border text-teal"></div> Calculating indices…</div>';
+
+  try {
+    const data = await apiPost('/api/calculate/all', {
+      measurements, standards, bdl_flags,
+      non_negative: nonNeg,
+      classification_profile: extClass ? 'extended' : 'mohan',
+    });
+    renderResults(data, measurements, standards);
+  } catch(e) {
+    resultsArea.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  }
+});
+
+function renderResults(data, measurements, standards) {
+  const area = document.getElementById('resultsArea');
+
+  let html = '<div class="row g-3 mb-3">';
+
+  // ---- Index summary cards ----
+  const indices = [
+    {key:'HPI', label:'Heavy Metal Pollution Index', valKey:'hpi', icon:'bi-activity'},
+    {key:'HEI', label:'Heavy Metal Evaluation Index', valKey:'hei', icon:'bi-bar-chart-fill'},
+    {key:'Cd_index', label:'Degree of Contamination (Cd Index)', valKey:'cd_index', icon:'bi-layers-fill'},
+  ];
+
+  indices.forEach(({key, label, valKey, icon}) => {
+    const d = data[key];
+    if (!d) return;
+    if (d.error) {
+      html += `<div class="col-md-4"><div class="card p-3">
+        <div class="text-danger"><i class="bi bi-x-circle me-1"></i>${key} Error: ${d.error}</div>
+      </div></div>`;
+      return;
+    }
+    const val = d[valKey];
+    html += `<div class="col-md-4">
+      <div class="index-display">
+        <div><i class="bi ${icon} me-1"></i>${label}</div>
+        <div class="idx-value">${fmtNum(val, 4)}</div>
+        <div class="idx-class">${d.classification||''}</div>
+        <div class="small mt-1 opacity-75">${d.metals_used?.length||0} metals used</div>
+      </div>
+    </div>`;
+  });
+
+  html += '</div>';
+
+  // ---- HPI Contribution Table ----
+  const hpi = data.HPI;
+  if (hpi && hpi.per_metal && hpi.per_metal.length) {
+    html += `<div class="card mb-3">
+      <div class="card-header-custom"><i class="bi bi-pie-chart-fill"></i>
+        <h5>HPI Metal Contribution Breakdown</h5>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-scientific mb-0">
+          <thead><tr>
+            <th>Metal</th><th>Measured (mg/L)</th><th>Limit Si (mg/L)</th>
+            <th>Wi = 1/Si</th><th>Qi (Sub-index)</th>
+            <th>Wi×Qi</th><th>Effective Contribution</th><th>% Contribution</th>
+          </tr></thead>
+          <tbody>
+            ${hpi.per_metal.map(p => `<tr>
+              <td><b>${p.metal}</b></td>
+              <td class="font-monospace">${fmtNum(p.measured_concentration_mg_L, 5)}</td>
+              <td class="font-monospace">${fmtNum(p.reference_limit_mg_L, 4)}</td>
+              <td class="font-monospace">${fmtNum(p.weight_Wi, 4)}</td>
+              <td class="font-monospace">${fmtNum(p.sub_index_Qi, 4)}</td>
+              <td class="font-monospace">${fmtNum(p.weighted_numerator_WiQi, 4)}</td>
+              <td class="font-monospace">${fmtNum(p.effective_contribution, 4)}</td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="progress progress-thin flex-grow-1" style="min-width:60px">
+                    <div class="progress-bar progress-bar-teal" style="width:${p.percentage_contribution}%"></div>
+                  </div>
+                  <span class="font-monospace small">${fmtNum(p.percentage_contribution, 2)}%</span>
+                </div>
+              </td>
+            </tr>`).join('')}
+            <tr class="table-secondary fw-bold">
+              <td>Σ</td><td>—</td><td>—</td>
+              <td class="font-monospace">${fmtNum(hpi.sum_weights, 4)}</td>
+              <td>—</td>
+              <td class="font-monospace">${fmtNum(hpi.sum_weighted_numerators, 4)}</td>
+              <td class="font-monospace text-navy">${fmtNum(hpi.hpi, 4)} = HPI</td>
+              <td class="font-monospace">≈100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+    // Contribution Pie Chart
+    html += `<div class="card mb-3">
+      <div class="card-header-custom"><i class="bi bi-pie-chart-fill"></i><h5>Percentage Contribution Chart</h5></div>
+      <div class="p-3"><div id="contribChart" style="height:280px"></div></div>
+    </div>`;
+  }
+
+  // Warnings
+  const allWarnings = [
+    ...(hpi?.warnings||[]),
+    ...(data.HEI?.warnings||[]),
+    ...(data.Cd_index?.warnings||[]),
+  ];
+  if (allWarnings.length) {
+    html += `<div class="alert-warning-sci alert">
+      <b><i class="bi bi-exclamation-triangle me-1"></i>Calculation Warnings:</b>
+      <ul class="mb-0 mt-1">${allWarnings.map(w=>`<li class="small">${w}</li>`).join('')}</ul>
+    </div>`;
+  }
+
+  // Classification note
+  html += `<div class="alert-scientific alert" style="font-size:.75rem">
+    <b>⚠ Classification Disclaimer:</b>
+    HPI thresholds (critical level = 100) are from Mohan et al. (1996) and are literature-based,
+    not universal regulatory classifications. HEI thresholds from Edet &amp; Offiong (2002).
+    Cd Index from Backman et al. (1998). Consult qualified environmental professionals for regulatory decisions.
+  </div>`;
+
+  area.innerHTML = html;
+
+  // Render pie chart
+  if (hpi && hpi.per_metal && hpi.per_metal.length) {
+    Plotly.newPlot('contribChart', [{
+      type: 'pie',
+      labels: hpi.per_metal.map(p => p.metal),
+      values: hpi.per_metal.map(p => p.percentage_contribution),
+      textinfo: 'label+percent',
+      marker: {colors: ['#0D9488','#1F3D6E','#2A5298','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#06B6D4','#84CC16']},
+      hole: 0.4,
+    }], {
+      margin: {t:10,b:10,l:10,r:10},
+      paper_bgcolor: 'transparent',
+      showlegend: true,
+      legend: {orientation:'h'},
+      font: {family:'Inter', size:11},
+    }, {responsive:true, displayModeBar:false});
+  }
+}
+
+async function loadDbSample() {
+  const id = document.getElementById('dbSampleId').value;
+  if (!id) return;
+  try {
+    // Load sample and prefill form fields
+    const data = await apiPost(`/api/calculate/sample/${id}`, {
+      standard_profile: document.getElementById('standardProfile').value
+    });
+    document.getElementById('dbSamplePreview').innerHTML = `
+      <div class="alert alert-success">
+        Indices calculated for sample DB#${id}.
+        <a href="#resultsArea">View below ↓</a>
+      </div>`;
+    renderResults(data.indices ? {HPI: data.indices.HPI, HEI: data.indices.HEI, Cd_index: data.indices.Cd_index} : {}, {}, {});
+  } catch(e) {
+    document.getElementById('dbSamplePreview').innerHTML =
+      `<div class="alert alert-danger">${e.message}</div>`;
+  }
+}
+
+buildMetalInputs();
+</script>
+{% endblock %}

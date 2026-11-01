@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}GIS Analysis{% endblock %}
+{% block page_title %}GIS Analysis — Interactive Map{% endblock %}
+{% block page_subtitle %}Geographical distribution of groundwater contamination across India{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <!-- Map Controls -->
+  <div class="col-lg-3">
+    <div class="card mb-3">
+      <div class="card-header-custom">
+        <i class="bi bi-sliders"></i><h5>Map Filters</h5>
+      </div>
+      <div class="p-3">
+        <div class="mb-3">
+          <label class="form-label">Metal Layer</label>
+          <select class="form-select" id="metalFilter">
+            <option value="">All Metals (location only)</option>
+            <option value="Fe">Iron (Fe)</option>
+            <option value="As">Arsenic (As)</option>
+            <option value="Mn">Manganese (Mn)</option>
+            <option value="Cu">Copper (Cu)</option>
+            <option value="Pb">Lead (Pb)</option>
+            <option value="Zn">Zinc (Zn)</option>
+            <option value="Ni">Nickel (Ni)</option>
+            <option value="Cd">Cadmium (Cd)</option>
+            <option value="Cr">Chromium (Cr)</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">State Filter</label>
+          <select class="form-select" id="stateFilter">
+            <option value="">All States</option>
+          </select>
+        </div>
+        <button class="btn btn-teal w-100" onclick="refreshMap()">
+          <i class="bi bi-arrow-clockwise me-1"></i> Refresh Map
+        </button>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card mb-3">
+      <div class="card-header-custom"><i class="bi bi-palette"></i><h5>Legend</h5></div>
+      <div class="p-3" id="mapLegend">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span style="width:14px;height:14px;border-radius:50%;background:#0D9488;display:inline-block"></span>
+          <small>Sample location</small>
+        </div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span style="width:14px;height:14px;border-radius:50%;background:#10B981;display:inline-block"></span>
+          <small>Below limit</small>
+        </div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span style="width:14px;height:14px;border-radius:50%;background:#F59E0B;display:inline-block"></span>
+          <small>Exceeds acceptable limit</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span style="width:14px;height:14px;border-radius:50%;background:#EF4444;display:inline-block"></span>
+          <small>Exceeds permissible limit</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats panel -->
+    <div class="card">
+      <div class="card-header-custom"><i class="bi bi-info-circle"></i><h5>Map Stats</h5></div>
+      <div class="p-3 small" id="mapStats">
+        <div class="text-muted">Click "Refresh Map" to load samples.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full Map -->
+  <div class="col-lg-9">
+    <div class="card">
+      <div class="card-header-custom">
+        <i class="bi bi-map-fill"></i>
+        <h5>India Groundwater Quality Map</h5>
+        <div class="ms-auto text-muted small">
+          Data: CGWB / NWDP · <a href="https://nwdp.nwic.gov.in/" target="_blank">nwdp.nwic.gov.in</a>
+        </div>
+      </div>
+      <div id="fullMap" style="height:600px;border-radius:0 0 12px 12px;"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const map = L.map('fullMap').setView([22.5, 80.0], 4);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors', maxZoom: 18,
+}).addTo(map);
+
+let markerLayer = L.layerGroup().addTo(map);
+
+// BIS IS 10500 permissible limits for colouring
+const BIS_LIMITS = {
+  Fe:0.3, As:0.05, Mn:0.3, Cu:1.5, Pb:0.05,
+  Zn:15.0, Ni:0.02, Cd:0.003, Cr:0.05,
+};
+const BIS_ACCEPTABLE = {
+  Fe:0.3, As:0.01, Mn:0.1, Cu:0.05, Pb:0.01,
+  Zn:5.0, Ni:0.02, Cd:0.003, Cr:0.05,
+};
+
+function getMarkerColor(metalValue, metal) {
+  if (!metal || metalValue === null || metalValue === undefined) return '#0D9488';
+  const acc = BIS_ACCEPTABLE[metal];
+  const perm = BIS_LIMITS[metal];
+  if (perm && metalValue > perm) return '#EF4444';
+  if (acc && metalValue > acc) return '#F59E0B';
+  return '#10B981';
+}
+
+async function refreshMap() {
+  markerLayer.clearLayers();
+  const metal = document.getElementById('metalFilter').value;
+  const state = document.getElementById('stateFilter').value;
+
+  let url = '/api/gis/samples';
+  const params = new URLSearchParams();
+  if (metal) params.append('metal', metal);
+  if (state) params.append('state', state);
+  if (params.toString()) url += '?' + params.toString();
+
+  try {
+    const data = await apiGet(url);
+    if (!data.features || data.features.length === 0) {
+      document.getElementById('mapStats').innerHTML =
+        '<div class="text-muted">No samples with coordinates found. <a href="/dataset/">Upload data first.</a></div>';
+      return;
+    }
+
+    data.features.forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const p = f.properties;
+      const metalVal = p.selected_metal_value;
+      const color = getMarkerColor(metalVal, metal);
+
+      const marker = L.circleMarker([lat, lon], {
+        radius: 7, fillColor: color,
+        color: '#ffffff', weight: 1.5,
+        opacity: 1, fillOpacity: 0.85,
+      });
+
+      let popupContent = `
+        <div style="min-width:180px;font-family:Inter,sans-serif">
+          <b style="color:#1F3D6E">${p.sample_id || 'Sample'}</b><br>
+          <small style="color:#64748B">${p.state || ''}${p.district ? ' · ' + p.district : ''}</small>
+          <hr style="margin:.5rem 0">
+          <table style="font-size:.75rem;width:100%">
+            <tr><td>pH</td><td><b>${p.pH ?? '—'}</b></td></tr>
+            <tr><td>TDS</td><td><b>${p.TDS ?? '—'} mg/L</b></td></tr>
+            <tr><td>Fe</td><td><b>${p.Fe ?? '—'} mg/L</b></td></tr>
+            <tr><td>As</td><td><b>${p.As ?? '—'} mg/L</b></td></tr>
+            <tr><td>Pb</td><td><b>${p.Pb ?? '—'} mg/L</b></td></tr>
+            <tr><td>Cd</td><td><b>${p.Cd ?? '—'} mg/L</b></td></tr>
+            <tr><td>Cr</td><td><b>${p.Cr ?? '—'} mg/L</b></td></tr>
+          </table>
+          ${metal && metalVal !== null ? `<div class="mt-1"><b>${metal}:</b> ${metalVal} mg/L</div>` : ''}
+          <div class="mt-1 text-muted" style="font-size:.7rem">${p.sample_date || ''}</div>
+          <a href="/api/export/pdf/${p.id}" style="font-size:.75rem;color:#0D9488">Download PDF Report</a>
+        </div>`;
+
+      marker.bindPopup(popupContent);
+      markerLayer.addLayer(marker);
+    });
+
+    document.getElementById('mapStats').innerHTML = `
+      <b>${data.count}</b> samples shown<br>
+      <span class="text-muted">Metal filter: ${metal || 'None'}</span><br>
+      <span class="text-muted">State filter: ${state || 'All'}</span>
+      ${metal ? `<br><span style="color:#EF4444">● Exceeds permissible limit</span>
+      <br><span style="color:#F59E0B">● Exceeds acceptable limit</span>
+      <br><span style="color:#10B981">● Within limits</span>` : ''}
+    `;
+  } catch(e) {
+    console.error('Map refresh failed', e);
+  }
+}
+
+// Load states for filter
+async function loadStates() {
+  const data = await apiGet('/api/gis/states');
+  const sel = document.getElementById('stateFilter');
+  data.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.state; opt.textContent = `${s.state} (${s.count})`;
+    sel.appendChild(opt);
+  });
+}
+
+loadStates();
+refreshMap();
+</script>
+{% endblock %}

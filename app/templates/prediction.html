@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Machine Learning{% endblock %}
+{% block page_title %}Machine Learning Predictions{% endblock %}
+{% block page_subtitle %}Random Forest and Linear Regression models for heavy metal concentration prediction{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <!-- Train Models -->
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header-custom"><i class="bi bi-cpu-fill"></i><h5>Train Models</h5></div>
+      <div class="p-3">
+        <div class="alert-scientific alert mb-3" style="font-size:.75rem">
+          <b>Design principle:</b> Target metal is never used as an input feature.
+          Models are trained on uploaded database samples only.
+          Minimum 30 samples required per metal.
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Model Type</label>
+          <select class="form-select" id="modelType">
+            <option value="random_forest">Random Forest Regressor</option>
+            <option value="linear_regression">Linear Regression (baseline)</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Dataset (optional)</label>
+          <input type="number" class="form-control" id="trainUploadId" placeholder="Upload ID (blank = all data)">
+        </div>
+        <button class="btn btn-primary w-100" id="trainBtn">
+          <i class="bi bi-play-fill me-1"></i>Train All Metal Models
+        </button>
+        <div id="trainResult" class="mt-3"></div>
+      </div>
+    </div>
+
+    <!-- Predict Panel -->
+    <div class="card">
+      <div class="card-header-custom"><i class="bi bi-stars"></i><h5>Make Prediction</h5></div>
+      <div class="p-3">
+        <div class="mb-2">
+          <label class="form-label">Select Model</label>
+          <select class="form-select" id="modelSelect">
+            <option value="">— load models first —</option>
+          </select>
+        </div>
+        <div class="row g-2 mb-2" id="predInputs">
+          <div class="col-6"><label class="form-label">pH</label>
+            <input type="number" step="any" class="form-control" id="pred_pH" placeholder="pH"></div>
+          <div class="col-6"><label class="form-label">EC (µS/cm)</label>
+            <input type="number" step="any" class="form-control" id="pred_EC" placeholder="EC"></div>
+          <div class="col-6"><label class="form-label">TDS (mg/L)</label>
+            <input type="number" step="any" class="form-control" id="pred_TDS" placeholder="TDS"></div>
+          <div class="col-6"><label class="form-label">Latitude</label>
+            <input type="number" step="any" class="form-control" id="pred_lat" placeholder="lat"></div>
+          <div class="col-6"><label class="form-label">Longitude</label>
+            <input type="number" step="any" class="form-control" id="pred_lon" placeholder="lon"></div>
+          <div class="col-6"><label class="form-label">Nitrate (mg/L)</label>
+            <input type="number" step="any" class="form-control" id="pred_nitrate" placeholder="NO3"></div>
+          <div class="col-6"><label class="form-label">Fluoride (mg/L)</label>
+            <input type="number" step="any" class="form-control" id="pred_fluoride" placeholder="F"></div>
+        </div>
+        <button class="btn btn-teal w-100" id="predictBtn">
+          <i class="bi bi-lightning-fill me-1"></i>Predict
+        </button>
+        <div id="predResult" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Models Table -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header-custom">
+        <i class="bi bi-table"></i><h5>Trained Models</h5>
+        <button class="ms-auto btn btn-sm btn-outline-secondary" onclick="loadModels()">
+          <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-scientific mb-0">
+          <thead><tr>
+            <th>ID</th><th>Target Metal</th><th>Model Type</th><th>Samples</th>
+            <th>MAE</th><th>RMSE</th><th>R²</th><th>Trained</th>
+          </tr></thead>
+          <tbody id="modelsTableBody">
+            <tr><td colspan="8" class="text-center py-4 text-muted">
+              No models trained yet. Upload data and click "Train".
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header-custom"><i class="bi bi-info-circle"></i><h5>Prediction Limitations</h5></div>
+      <div class="p-3">
+        <div class="alert-warning-sci alert" style="font-size:.8rem">
+          <ul class="mb-0">
+            <li>Models are trained exclusively on uploaded real measurement data.</li>
+            <li>Spatial generalization is limited to the training data region.</li>
+            <li>BDL (below detection limit) samples are excluded from training.</li>
+            <li>Do not use predictions as a sole basis for regulatory decisions.</li>
+            <li>The target metal is never included as an input feature (no data leakage).</li>
+            <li>Confidence intervals are based on Random Forest tree variance (±1.96σ).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function loadModels() {
+  const data = await apiGet('/api/ml/models');
+  const tbody = document.getElementById('modelsTableBody');
+  const select = document.getElementById('modelSelect');
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No active models found.</td></tr>';
+    select.innerHTML = '<option value="">— no models trained —</option>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(m => `<tr>
+    <td>${m.id}</td>
+    <td><b>${m.target_variable}</b></td>
+    <td><span class="badge bg-secondary">${m.model_type}</span></td>
+    <td>${m.training_samples}</td>
+    <td class="font-monospace">${fmtNum(m.mae,4)}</td>
+    <td class="font-monospace">${fmtNum(m.rmse,4)}</td>
+    <td class="font-monospace">${fmtNum(m.r2,4)}</td>
+    <td>${m.trained_at ? new Date(m.trained_at).toLocaleDateString('en-IN') : '—'}</td>
+  </tr>`).join('');
+
+  select.innerHTML = '<option value="">— select model —</option>' +
+    data.map(m => `<option value="${m.id}" data-target="${m.target_variable}" data-features='${JSON.stringify(m.feature_names||[])}'>
+      ${m.target_variable} — ${m.model_type} (R²=${fmtNum(m.r2,3)})
+    </option>`).join('');
+}
+
+document.getElementById('trainBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('trainBtn');
+  const result = document.getElementById('trainResult');
+  btn.disabled = true;
+  result.innerHTML = '<div class="loading-spinner"><div class="spinner-border spinner-border-sm"></div> Training (may take a moment)…</div>';
+
+  try {
+    const uploadId = document.getElementById('trainUploadId').value;
+    const modelType = document.getElementById('modelType').value;
+    const data = await apiPost('/api/ml/train', {
+      upload_id: uploadId ? parseInt(uploadId) : null,
+      model_type: modelType,
+    });
+
+    if (data.error) {
+      result.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+    } else {
+      result.innerHTML = `<div class="alert alert-success">
+        <b>${data.message}</b><br>
+        ${(data.models||[]).map(m => `<small>${m.target}: MAE=${fmtNum(m.metrics?.mae,4)}, R²=${fmtNum(m.metrics?.r2,3)}</small>`).join('<br>')}
+      </div>`;
+      loadModels();
+    }
+  } catch(e) {
+    result.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('predictBtn').addEventListener('click', async () => {
+  const modelId = document.getElementById('modelSelect').value;
+  if (!modelId) { alert('Select a model first.'); return; }
+
+  const inputs = {
+    pH:       parseFloat(document.getElementById('pred_pH').value) || undefined,
+    EC:       parseFloat(document.getElementById('pred_EC').value) || undefined,
+    TDS:      parseFloat(document.getElementById('pred_TDS').value) || undefined,
+    latitude: parseFloat(document.getElementById('pred_lat').value) || undefined,
+    longitude:parseFloat(document.getElementById('pred_lon').value) || undefined,
+    nitrate:  parseFloat(document.getElementById('pred_nitrate').value) || undefined,
+    fluoride: parseFloat(document.getElementById('pred_fluoride').value) || undefined,
+  };
+  // Remove undefined
+  Object.keys(inputs).forEach(k => inputs[k] === undefined && delete inputs[k]);
+
+  const result = document.getElementById('predResult');
+  result.innerHTML = '<div class="spinner-border spinner-border-sm text-teal"></div>';
+
+  try {
+    const data = await apiPost('/api/predict', {model_id: parseInt(modelId), input_features: inputs});
+    if (data.error) {
+      result.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+      return;
+    }
+
+    result.innerHTML = `
+      <div class="card border-0" style="background:rgba(13,148,136,.05);border:1px solid var(--teal)!important">
+        <div class="p-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-stars text-teal fs-5"></i>
+            <span class="fw-600 text-navy">Predicted ${data.target_metal} Concentration</span>
+          </div>
+          <div class="text-center mb-2">
+            <span style="font-size:2rem;font-weight:700;color:var(--navy);font-family:monospace">
+              ${fmtNum(data.predicted_value_mg_L, 5)} mg/L
+            </span>
+            ${data.uncertainty_lower_95ci !== null ? `<br>
+              <small class="text-muted">95% CI: [${fmtNum(data.uncertainty_lower_95ci,5)}, ${fmtNum(data.uncertainty_upper_95ci,5)}]</small>` : ''}
+          </div>
+          <div class="row g-1 text-center mb-2">
+            <div class="col-4"><small class="text-muted">MAE</small><br><b>${fmtNum(data.model_metrics?.mae,4)}</b></div>
+            <div class="col-4"><small class="text-muted">RMSE</small><br><b>${fmtNum(data.model_metrics?.rmse,4)}</b></div>
+            <div class="col-4"><small class="text-muted">R²</small><br><b>${fmtNum(data.model_metrics?.r2,4)}</b></div>
+          </div>
+          <div class="alert-warning-sci alert py-1 px-2 mb-0" style="font-size:.7rem">
+            ${data.limitations}
+          </div>
+        </div>
+      </div>`;
+  } catch(e) {
+    result.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  }
+});
+
+loadModels();
+</script>
+{% endblock %}

@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}HMPIAS{% endblock %} — Heavy Metal Pollution Index Assessment System</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    :root {
+      --navy:      #1F3D6E;
+      --navy-dark: #152B50;
+      --navy-mid:  #2A5298;
+      --teal:      #0D9488;
+      --teal-light:#14B8A6;
+      --green:     #10B981;
+      --amber:     #F59E0B;
+      --red:       #EF4444;
+      --bg:        #F0F4F8;
+      --card-bg:   #FFFFFF;
+      --sidebar-w: 260px;
+      --text-main: #1E293B;
+      --text-muted:#64748B;
+      --border:    #E2E8F0;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      margin: 0;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ====== SIDEBAR ====== */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: linear-gradient(180deg, var(--navy-dark) 0%, var(--navy) 100%);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      left: 0; top: 0; bottom: 0;
+      z-index: 100;
+      box-shadow: 4px 0 20px rgba(0,0,0,.15);
+      transition: transform .25s;
+    }
+
+    .sidebar-brand {
+      padding: 1.5rem 1.25rem 1rem;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+    .sidebar-brand .brand-icon {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, var(--teal), var(--teal-light));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; color: white;
+      margin-bottom: .6rem;
+      box-shadow: 0 4px 12px rgba(13,148,136,.4);
+    }
+    .sidebar-brand h1 {
+      font-size: 1.05rem; font-weight: 700;
+      color: #fff; margin: 0; letter-spacing: .5px;
+    }
+    .sidebar-brand p {
+      font-size: .65rem; color: rgba(255,255,255,.55);
+      margin: 0; line-height: 1.3;
+    }
+
+    .sidebar-nav { flex: 1; padding: .75rem 0; overflow-y: auto; }
+    .nav-section-label {
+      font-size: .6rem; font-weight: 600; letter-spacing: 1.5px;
+      color: rgba(255,255,255,.35); text-transform: uppercase;
+      padding: .85rem 1.25rem .35rem;
+    }
+    .sidebar-nav .nav-link {
+      display: flex; align-items: center; gap: .65rem;
+      padding: .6rem 1.25rem;
+      color: rgba(255,255,255,.7);
+      font-size: .82rem; font-weight: 500;
+      border-radius: 0;
+      transition: all .18s;
+      text-decoration: none;
+      border-left: 3px solid transparent;
+    }
+    .sidebar-nav .nav-link i { font-size: 1rem; width: 18px; text-align: center; }
+    .sidebar-nav .nav-link:hover {
+      color: #fff;
+      background: rgba(255,255,255,.07);
+      border-left-color: var(--teal-light);
+    }
+    .sidebar-nav .nav-link.active {
+      color: #fff;
+      background: rgba(13,148,136,.18);
+      border-left-color: var(--teal);
+    }
+
+    .sidebar-footer {
+      padding: 1rem 1.25rem;
+      border-top: 1px solid rgba(255,255,255,.1);
+      font-size: .65rem;
+      color: rgba(255,255,255,.35);
+    }
+
+    /* ====== MAIN CONTENT ====== */
+    #main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .topbar {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: .85rem 1.75rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .topbar-title { font-size: 1.05rem; font-weight: 600; color: var(--navy); }
+    .topbar-subtitle { font-size: .75rem; color: var(--text-muted); margin-top: 1px; }
+    .topbar-right { display: flex; align-items: center; gap: .75rem; }
+    .system-badge {
+      background: linear-gradient(135deg, var(--teal), var(--teal-light));
+      color: white; font-size: .68rem; font-weight: 600;
+      padding: .25rem .75rem; border-radius: 20px;
+      letter-spacing: .3px;
+    }
+
+    .page-content { padding: 1.75rem; flex: 1; min-width: 0; max-width: 100%; overflow-x: hidden; }
+
+    /* ====== CARDS ====== */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.05);
+      min-width: 0;
+      overflow: hidden;
+    }
+    .card-header-custom {
+      padding: 1rem 1.25rem .75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: .6rem;
+    }
+    .card-header-custom h5 {
+      font-size: .9rem; font-weight: 600; color: var(--navy); margin: 0;
+    }
+    .card-header-custom i { color: var(--teal); font-size: 1.05rem; }
+
+    /* ====== STAT CARDS ====== */
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 6px rgba(0,0,0,.05);
+      position: relative; overflow: hidden;
+      min-width: 0;
+      transition: transform .18s, box-shadow .18s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.09); }
+    .stat-card .stat-icon {
+      width: 46px; height: 46px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; margin-bottom: .75rem;
+    }
+    .stat-card .stat-value {
+      font-size: clamp(1.3rem, 2vw, 1.8rem); font-weight: 700; color: var(--navy); line-height: 1.1;
+      word-break: break-word;
+    }
+    .stat-card .stat-label {
+      font-size: .75rem; color: var(--text-muted); margin-top: .3rem;
+    }
+    .stat-card .stat-accent {
+      position: absolute; right: -12px; bottom: -12px;
+      width: 80px; height: 80px; border-radius: 50%;
+      opacity: .08;
+    }
+
+    .icon-teal    { background: rgba(13,148,136,.1); color: var(--teal); }
+    .icon-navy    { background: rgba(31,61,110,.1);  color: var(--navy); }
+    .icon-green   { background: rgba(16,185,129,.1); color: var(--green); }
+    .icon-amber   { background: rgba(245,158,11,.1); color: var(--amber); }
+    .icon-red     { background: rgba(239,68,68,.1);  color: var(--red); }
+
+    /* ====== TABLES ====== */
+    .table-responsive {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .table-scientific thead th {
+      background: var(--navy); color: white;
+      font-size: .75rem; font-weight: 600;
+      padding: .75rem 1rem;
+      white-space: nowrap;
+    }
+    .table-scientific tbody td {
+      font-size: .8rem; padding: .65rem 1rem;
+      border-color: var(--border); vertical-align: middle;
+    }
+    .table-scientific tbody tr:hover { background: rgba(13,148,136,.04); }
+
+    /* ====== BADGES ====== */
+    .badge-critical   { background: #FEE2E2; color: #DC2626; }
+    .badge-high       { background: #FEF3C7; color: #D97706; }
+    .badge-moderate   { background: #FEF9C3; color: #CA8A04; }
+    .badge-low        { background: #DCFCE7; color: #16A34A; }
+    .badge-info       { background: #DBEAFE; color: #2563EB; }
+
+    /* ====== INDEX VALUE DISPLAY ====== */
+    .index-display {
+      text-align: center;
+      padding: 1.5rem;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy-mid) 100%);
+      color: white;
+    }
+    .index-display .idx-value {
+      font-size: 2.5rem; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .index-display .idx-name { font-size: .85rem; opacity: .8; margin-top: .3rem; }
+    .index-display .idx-class {
+      display: inline-block;
+      margin-top: .6rem;
+      padding: .25rem .85rem;
+      border-radius: 20px;
+      font-size: .75rem; font-weight: 600;
+      background: rgba(255,255,255,.15);
+    }
+
+    /* ====== FORMS ====== */
+    .form-label { font-size: .82rem; font-weight: 500; color: var(--navy); }
+    .form-control, .form-select {
+      font-size: .85rem; border-color: var(--border);
+      border-radius: 8px;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--teal); box-shadow: 0 0 0 3px rgba(13,148,136,.12);
+    }
+
+    /* ====== BUTTONS ====== */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+      border: none; border-radius: 8px;
+      font-size: .85rem; font-weight: 500;
+      transition: all .18s;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(31,61,110,.3); }
+    .btn-teal {
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-light) 100%);
+      border: none; border-radius: 8px; color: white;
+      font-size: .85rem; font-weight: 500;
+    }
+    .btn-teal:hover { filter: brightness(1.08); color: white; }
+
+    /* ====== ALERTS ====== */
+    .alert-scientific {
+      border-radius: 10px; border-left: 4px solid var(--teal);
+      background: rgba(13,148,136,.06);
+      font-size: .82rem;
+    }
+    .alert-warning-sci { border-left-color: var(--amber); background: rgba(245,158,11,.06); }
+    .alert-danger-sci  { border-left-color: var(--red);   background: rgba(239,68,68,.06); }
+
+    /* ====== PROGRESS BARS ====== */
+    .progress-thin { height: 6px; border-radius: 3px; }
+    .progress-bar-teal { background: linear-gradient(90deg, var(--teal), var(--teal-light)); }
+
+    /* ====== LOADING ====== */
+    .loading-spinner {
+      display: flex; align-items: center; justify-content: center;
+      gap: .75rem; padding: 2rem; color: var(--text-muted); font-size: .85rem;
+    }
+
+    /* ====== CHART CONTAINERS ====== */
+    .chart-container {
+      min-height: 280px;
+      min-width: 0;
+      width: 100%;
+      overflow: hidden;
+    }
+    .chart-container > div {
+      width: 100% !important;
+      max-width: 100%;
+    }
+
+    /* ====== RESPONSIVE ====== */
+    @media (max-width: 992px) {
+      #sidebar { transform: translateX(-100%); }
+      #sidebar.open { transform: translateX(0); }
+      #main { margin-left: 0; }
+      .topbar { padding: .75rem 1rem; }
+      .page-content { padding: 1rem; }
+    }
+
+    /* ====== UPLOAD DROP ZONE ====== */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      color: var(--text-muted);
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--teal);
+      background: rgba(13,148,136,.04);
+      color: var(--teal);
+    }
+    .drop-zone i { font-size: 2.5rem; display: block; margin-bottom: .75rem; }
+
+    /* ====== MAP ====== */
+    #map { border-radius: 0 0 12px 12px; }
+
+    /* ====== METHODOLOGY NOTE ====== */
+    .methodology-note {
+      font-size: .75rem; color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      background: #F8FAFC;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .75rem 1rem;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ==================== SIDEBAR ==================== -->
+<nav id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon"><i class="bi bi-droplet-half"></i></div>
+    <h1>HMPIAS</h1>
+    <p>Heavy Metal Pollution Index<br>Assessment System</p>
+  </div>
+
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Main</div>
+    <a href="/" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+      <i class="bi bi-grid-1x2-fill"></i> Dashboard
+    </a>
+
+    <div class="nav-section-label">Data</div>
+    <a href="/dataset/" class="nav-link {% if 'dataset' in (request.endpoint or '') %}active{% endif %}">
+      <i class="bi bi-cloud-upload-fill"></i> Dataset Management
+    </a>
+
+    <div class="nav-section-label">Analysis</div>
+    <a href="/api/calculator" class="nav-link {% if 'calculator' in (request.path or '') %}active{% endif %}">
+      <i class="bi bi-calculator-fill"></i> Index Calculator
+    </a>
+    <a href="/api/ml" class="nav-link {% if request.endpoint == 'predictions.ml_page' %}active{% endif %}">
+      <i class="bi bi-cpu-fill"></i> Machine Learning
+    </a>
+    <a href="/gis" class="nav-link {% if 'gis' in (request.path or '') %}active{% endif %}">
+      <i class="bi bi-map-fill"></i> GIS Analysis
+    </a>
+
+    <div class="nav-section-label">Output</div>
+    <a href="/api/reports" class="nav-link {% if 'reports' in (request.path or '') %}active{% endif %}">
+      <i class="bi bi-file-earmark-pdf-fill"></i> Reports
+    </a>
+    <a href="/api/standards-page" class="nav-link {% if 'standards' in (request.path or '') %}active{% endif %}">
+      <i class="bi bi-shield-check"></i> Standards
+    </a>
+
+    <div class="nav-section-label">Info</div>
+    <a href="/about" class="nav-link">
+      <i class="bi bi-info-circle-fill"></i> About Project
+    </a>
+  </div>
+
+  <div class="sidebar-footer">
+    <div>v1.0.0 · Python 3.14 · Flask 3</div>
+    <div style="margin-top:.25rem">© 2024 HMPIAS Research</div>
+  </div>
+</nav>
+
+<!-- ==================== MAIN ==================== -->
+<div id="main">
+  <!-- Topbar -->
+  <div class="topbar">
+    <button class="btn btn-sm d-lg-none me-2" id="sidebarToggle" style="border:none">
+      <i class="bi bi-list" style="font-size:1.3rem"></i>
+    </button>
+    <div>
+      <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+      <div class="topbar-subtitle">{% block page_subtitle %}Heavy Metal Pollution Index Assessment System{% endblock %}</div>
+    </div>
+    <div class="topbar-right">
+      <span class="system-badge"><i class="bi bi-activity"></i> Live</span>
+      <a href="/api/health" class="text-muted" style="font-size:.8rem; text-decoration:none" target="_blank">
+        <i class="bi bi-heart-pulse"></i> Health
+      </a>
+    </div>
+  </div>
+
+  <!-- Flash Messages -->
+  <div class="px-4 pt-2">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endwith %}
+  </div>
+
+  <!-- Page Content -->
+  <div class="page-content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<!-- ==================== SCRIPTS ==================== -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.1/plotly.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+  // Sidebar toggle on mobile
+  document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('open');
+  });
+
+  // Utility: format numbers
+  function fmtNum(n, dec=4) {
+    if (n === null || n === undefined) return '—';
+    return Number(n).toFixed(dec);
+  }
+
+  // Utility: classification badge
+  function classificationBadge(cls) {
+    if (!cls) return '';
+    const lower = cls.toLowerCase();
+    let klass = 'badge-info';
+    if (lower.includes('critical') || lower.includes('very high') || lower.includes('high pollution'))
+      klass = 'badge-critical';
+    else if (lower.includes('high'))
+      klass = 'badge-high';
+    else if (lower.includes('moderate') || lower.includes('medium'))
+      klass = 'badge-moderate';
+    else if (lower.includes('low') || lower.includes('acceptable'))
+      klass = 'badge-low';
+    return `<span class="badge rounded-pill px-2 py-1 ${klass}">${cls}</span>`;
+  }
+
+  // API helper
+  async function apiPost(url, body) {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    return resp.json();
+  }
+
+  async function apiGet(url) {
+    const resp = await fetch(url);
+    return resp.json();
+  }
+</script>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Standards{% endblock %}
+{% block page_title %}Water Quality Standards{% endblock %}
+{% block page_subtitle %}BIS IS 10500:2012 · WHO GDWQ 4th Ed. — regulatory reference limits{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card p-3 text-center h-100" style="border-left:4px solid var(--navy)">
+      <i class="bi bi-shield-fill-check" style="font-size:2rem;color:var(--navy)"></i>
+      <h6 class="fw-600 mt-2">BIS IS 10500:2012</h6>
+      <p class="text-muted small mb-0">Bureau of Indian Standards<br>Amendment 2019<br>Drinking Water Specification</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3 text-center h-100" style="border-left:4px solid var(--teal)">
+      <i class="bi bi-globe" style="font-size:2rem;color:var(--teal)"></i>
+      <h6 class="fw-600 mt-2">WHO GDWQ</h6>
+      <p class="text-muted small mb-0">4th Edition + Addenda (2022)<br>Guidelines for Drinking-water Quality<br>International reference</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3 text-center h-100" style="border-left:4px solid var(--amber)">
+      <i class="bi bi-exclamation-triangle-fill" style="font-size:2rem;color:var(--amber)"></i>
+      <h6 class="fw-600 mt-2">Important Note</h6>
+      <p class="text-muted small mb-0">BIS distinguishes Acceptable Limit (AL) from Permissible Limit (PL). Index calculations use PL. WHO uses a single Guideline Value (GV).</p>
+    </div>
+  </div>
+</div>
+
+<!-- Tab selection -->
+<div class="card">
+  <div class="card-header-custom">
+    <i class="bi bi-table"></i><h5>Standards Reference Table</h5>
+    <div class="ms-auto">
+      <select class="form-select form-select-sm" id="profileSelect" onchange="loadProfile()">
+        <option value="BIS IS 10500">BIS IS 10500:2012</option>
+        <option value="WHO GDWQ">WHO GDWQ (2022)</option>
+      </select>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-scientific mb-0">
+      <thead><tr>
+        <th>Metal</th><th>Parameter</th><th>Species</th>
+        <th>Acceptable Limit</th><th>Permissible Limit</th>
+        <th>Guideline Value</th><th>Unit</th><th>Notes</th>
+      </tr></thead>
+      <tbody id="standardsTableBody">
+        <tr><td colspan="8" class="text-center py-4">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Classification Thresholds -->
+<div class="row g-3 mt-2">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header-custom"><i class="bi bi-activity"></i><h5>HPI Classification</h5></div>
+      <div class="p-3">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>HPI Range</th><th>Category</th></tr></thead>
+          <tbody>
+            <tr><td>&lt; 100</td><td><span class="badge rounded-pill badge-low">Low Pollution</span></td></tr>
+            <tr><td>≥ 100</td><td><span class="badge rounded-pill badge-critical">High (Critical)</span></td></tr>
+          </tbody>
+        </table>
+        <small class="text-muted d-block mt-2">Source: Mohan et al. (1996). Literature-based — not a regulatory threshold.</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header-custom"><i class="bi bi-bar-chart-fill"></i><h5>HEI Classification</h5></div>
+      <div class="p-3">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>HEI Range</th><th>Category</th></tr></thead>
+          <tbody>
+            <tr><td>&lt; 10</td><td><span class="badge rounded-pill badge-low">Low</span></td></tr>
+            <tr><td>10–20</td><td><span class="badge rounded-pill badge-moderate">Medium</span></td></tr>
+            <tr><td>≥ 20</td><td><span class="badge rounded-pill badge-critical">High</span></td></tr>
+          </tbody>
+        </table>
+        <small class="text-muted d-block mt-2">Source: Edet &amp; Offiong (2002). Literature-based.</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header-custom"><i class="bi bi-layers-fill"></i><h5>Cd Index Classification</h5></div>
+      <div class="p-3">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Cd Index</th><th>Category</th></tr></thead>
+          <tbody>
+            <tr><td>&lt; 0</td><td><span class="badge rounded-pill badge-low">Below Background</span></td></tr>
+            <tr><td>0–1</td><td><span class="badge rounded-pill badge-low">Low</span></td></tr>
+            <tr><td>1–3</td><td><span class="badge rounded-pill badge-moderate">Medium</span></td></tr>
+            <tr><td>3–6</td><td><span class="badge rounded-pill badge-high">High</span></td></tr>
+            <tr><td>≥ 6</td><td><span class="badge rounded-pill badge-critical">Very High</span></td></tr>
+          </tbody>
+        </table>
+        <small class="text-muted d-block mt-2">Source: Backman et al. (1998). Literature-based.<br>⚠ "Cd" = index name, NOT cadmium element.</small>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function loadProfile() {
+  const profile = document.getElementById('profileSelect').value;
+  const data = await apiGet(`/api/standards/profile/${encodeURIComponent(profile)}`);
+  const tbody = document.getElementById('standardsTableBody');
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No data for this profile.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(s => `<tr>
+    <td><b>${s.metal}</b></td>
+    <td>${s.parameter||'—'}</td>
+    <td><span class="badge bg-secondary">${s.chemical_species||'total'}</span></td>
+    <td class="font-monospace">${s.acceptable_limit !== null ? s.acceptable_limit : '—'}</td>
+    <td class="font-monospace ${s.permissible_limit ? 'fw-bold text-navy' : ''}">${s.permissible_limit !== null ? s.permissible_limit : '—'}</td>
+    <td class="font-monospace">${s.guideline_value !== null ? s.guideline_value : '—'}</td>
+    <td>${s.unit}</td>
+    <td class="small text-muted">${s.notes||'—'}</td>
+  </tr>`).join('');
+}
+loadProfile();
+</script>
+{% endblock %}

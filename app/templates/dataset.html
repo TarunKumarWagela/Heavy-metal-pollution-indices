@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}Dataset Management{% endblock %}
+{% block page_title %}Dataset Management{% endblock %}
+{% block page_subtitle %}Upload, validate and manage groundwater sample datasets{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <!-- Upload Panel -->
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header-custom">
+        <i class="bi bi-cloud-upload-fill"></i>
+        <h5>Upload Dataset</h5>
+        <a href="/dataset/sample-csv" class="ms-auto btn btn-sm btn-outline-secondary">
+          <i class="bi bi-download"></i> Sample CSV
+        </a>
+      </div>
+      <div class="p-3">
+        <div class="alert-scientific alert mb-3">
+          <b>Data Source:</b> Upload groundwater data from CGWB / National Water Data Portal
+          (<a href="https://nwdp.nwic.gov.in/" target="_blank">nwdp.nwic.gov.in</a>).
+          Download the sample template to see the expected format.
+        </div>
+
+        <div class="drop-zone mb-3" id="dropZone">
+          <i class="bi bi-file-earmark-arrow-up"></i>
+          <div class="fw-600">Drag &amp; drop CSV or Excel file here</div>
+          <div class="small mt-1">or click to browse</div>
+          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none">
+        </div>
+
+        <!-- Column Mapping -->
+        <div id="mappingSection" style="display:none">
+          <h6 class="fw-600 text-navy mb-2"><i class="bi bi-arrow-left-right me-1"></i>Column Mapping</h6>
+          <p class="text-muted small mb-2">Map your file columns to standard HMPIAS fields:</p>
+          <div id="mappingFields" class="row g-2 mb-3"></div>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label">Notes (optional)</label>
+          <input type="text" class="form-control" id="uploadNotes" placeholder="e.g. CGWB 2023 dataset, Rajasthan">
+        </div>
+
+        <button class="btn btn-primary w-100" id="uploadBtn" disabled>
+          <i class="bi bi-cloud-upload"></i> Upload &amp; Validate
+        </button>
+
+        <div id="uploadProgress" class="mt-3" style="display:none">
+          <div class="progress progress-thin">
+            <div class="progress-bar progress-bar-teal progress-bar-animated progress-bar-striped"
+                 role="progressbar" style="width:100%"></div>
+          </div>
+          <div class="text-muted small text-center mt-1">Processing…</div>
+        </div>
+
+        <div id="uploadResult" class="mt-3"></div>
+      </div>
+    </div>
+
+    <!-- Supported Fields Reference -->
+    <div class="card">
+      <div class="card-header-custom">
+        <i class="bi bi-list-columns-reverse"></i>
+        <h5>Supported Standard Fields</h5>
+      </div>
+      <div class="p-3">
+        <div class="methodology-note">
+sample_id, state, district, station,
+latitude, longitude, sample_date,
+pH, EC, TDS,
+Fe, As, U, Mn, Cu, Pb, Zn, Ni, Cd, Cr,
+fluoride, nitrate
+
+All metal concentrations in mg/L.
+BDL values: enter "BDL", "ND", "&lt;DL".
+        </div>
+        <div class="alert-scientific alert mt-2 mb-0" style="font-size:.75rem">
+          <b>Unit note:</b> Store values in mg/L. If your source provides µg/L,
+          divide by 1000 before upload, or use the column mapping to flag unit.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload History & Validation -->
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header-custom">
+        <i class="bi bi-clock-history"></i>
+        <h5>Upload History</h5>
+        <button class="ms-auto btn btn-sm btn-outline-secondary" onclick="loadUploads()">
+          <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-scientific mb-0">
+          <thead>
+            <tr>
+              <th>ID</th><th>File</th><th>Rows</th>
+              <th>Status</th><th>Uploaded</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="uploadsTableBody">
+            <tr><td colspan="6" class="text-center py-4 text-muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Validation Report -->
+    <div class="card" id="validationCard" style="display:none">
+      <div class="card-header-custom">
+        <i class="bi bi-shield-check"></i>
+        <h5>Validation Report</h5>
+        <button class="ms-auto btn-close" onclick="document.getElementById('validationCard').style.display='none'"></button>
+      </div>
+      <div class="p-3" id="validationContent"></div>
+    </div>
+
+    <!-- Sample Preview -->
+    <div class="card" id="previewCard" style="display:none">
+      <div class="card-header-custom">
+        <i class="bi bi-table"></i>
+        <h5>Dataset Preview</h5>
+        <button class="ms-auto btn-close" onclick="document.getElementById('previewCard').style.display='none'"></button>
+      </div>
+      <div class="table-responsive" style="max-height:320px; overflow-y:auto">
+        <table class="table table-scientific mb-0 table-sm">
+          <thead id="previewHead"></thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ============================================================
+// File Upload UI
+// ============================================================
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+let selectedFile = null;
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+function handleFile(file) {
+  if (!file) return;
+  selectedFile = file;
+  dropZone.innerHTML = `<i class="bi bi-file-earmark-check text-teal"></i>
+    <div class="fw-600">${file.name}</div>
+    <div class="small text-muted">${(file.size/1024).toFixed(1)} KB · Click to change</div>`;
+  document.getElementById('uploadBtn').disabled = false;
+}
+
+document.getElementById('uploadBtn').addEventListener('click', async () => {
+  if (!selectedFile) return;
+  const btn = document.getElementById('uploadBtn');
+  const prog = document.getElementById('uploadProgress');
+  const result = document.getElementById('uploadResult');
+
+  btn.disabled = true;
+  prog.style.display = 'block';
+  result.innerHTML = '';
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  formData.append('notes', document.getElementById('uploadNotes').value);
+
+  try {
+    const resp = await fetch('/dataset/upload', {method: 'POST', body: formData});
+    const data = await resp.json();
+
+    if (resp.ok) {
+      showValidationReport(data);
+      result.innerHTML = `<div class="alert alert-success">
+        <i class="bi bi-check-circle-fill me-1"></i>
+        Upload successful! <b>${data.rows_inserted}</b> samples imported.
+        <a href="/dataset/uploads/${data.upload_id}/samples" class="ms-2">View samples →</a>
+      </div>`;
+      loadUploads();
+    } else {
+      result.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle me-1"></i>${data.error}</div>`;
+    }
+  } catch(e) {
+    result.innerHTML = `<div class="alert alert-danger">Upload failed: ${e.message}</div>`;
+  } finally {
+    prog.style.display = 'none';
+    btn.disabled = false;
+  }
+});
+
+function showValidationReport(data) {
+  const s = data.validation_summary || {};
+  const card = document.getElementById('validationCard');
+  const content = document.getElementById('validationContent');
+
+  let warnings = (data.warnings || []).slice(0, 20).map(w =>
+    `<li class="text-${w.severity==='error'?'danger':'warning'} small">${w.field}: ${w.issue}</li>`
+  ).join('');
+
+  content.innerHTML = `
+    <div class="row g-2 mb-3">
+      <div class="col-6 col-md-3"><div class="card p-2 text-center">
+        <div class="fw-bold text-navy fs-5">${s.total_rows||0}</div><small class="text-muted">Total Rows</small></div></div>
+      <div class="col-6 col-md-3"><div class="card p-2 text-center">
+        <div class="fw-bold text-success fs-5">${s.valid_rows||0}</div><small class="text-muted">Valid</small></div></div>
+      <div class="col-6 col-md-3"><div class="card p-2 text-center">
+        <div class="fw-bold text-danger fs-5">${s.invalid_rows||0}</div><small class="text-muted">Invalid</small></div></div>
+      <div class="col-6 col-md-3"><div class="card p-2 text-center">
+        <div class="fw-bold text-warning fs-5">${s.duplicate_rows||0}</div><small class="text-muted">Duplicates</small></div></div>
+    </div>
+    ${warnings ? `<div class="alert-warning-sci alert"><b>Warnings:</b><ul class="mb-0">${warnings}</ul></div>` : ''}
+    <div class="small text-muted">BDL counts: ${JSON.stringify(s.bdl_counts||{})}</div>
+  `;
+  card.style.display = 'block';
+}
+
+// ============================================================
+// Load uploads table
+// ============================================================
+async function loadUploads() {
+  try {
+    const data = await apiGet('/dataset/uploads');
+    const tbody = document.getElementById('uploadsTableBody');
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">No uploads yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(u => {
+      const sc = {processed:'badge-low',validated:'badge-info',pending:'badge-moderate',error:'badge-critical'}[u.status]||'badge-info';
+      const dt = u.uploaded_at ? new Date(u.uploaded_at).toLocaleDateString('en-IN') : '—';
+      return `<tr>
+        <td>${u.id}</td>
+        <td><i class="bi bi-file-earmark-text text-teal me-1"></i>${u.filename}</td>
+        <td>${(u.row_count||0).toLocaleString()}</td>
+        <td><span class="badge rounded-pill px-2 ${sc}">${u.status}</span></td>
+        <td>${dt}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-info me-1" onclick="previewUpload(${u.id})" title="Preview">
+            <i class="bi bi-eye"></i></button>
+          <button class="btn btn-sm btn-teal me-1" onclick="calcUpload(${u.id})" title="Calculate Indices">
+            <i class="bi bi-calculator"></i></button>
+          <a href="/api/export/csv/${u.id}" class="btn btn-sm btn-outline-success me-1" title="CSV">
+            <i class="bi bi-filetype-csv"></i></a>
+          <a href="/api/export/excel/${u.id}" class="btn btn-sm btn-outline-success" title="Excel">
+            <i class="bi bi-file-earmark-excel"></i></a>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function previewUpload(uploadId) {
+  const data = await apiGet(`/dataset/uploads/${uploadId}/samples?per_page=20`);
+  if (!data.samples || !data.samples.length) return;
+
+  const keys = Object.keys(data.samples[0]).slice(0, 12);
+  const head = document.getElementById('previewHead');
+  const body = document.getElementById('previewBody');
+  head.innerHTML = `<tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr>`;
+  body.innerHTML = data.samples.map(s =>
+    `<tr>${keys.map(k => `<td>${s[k]??'—'}</td>`).join('')}</tr>`
+  ).join('');
+  document.getElementById('previewCard').style.display = 'block';
+}
+
+async function calcUpload(uploadId) {
+  if (!confirm(`Run HPI, HEI and Cd index calculations for all samples in dataset #${uploadId}?`)) return;
+  const r = await apiPost(`/api/calculate/dataset/${uploadId}`, {standard_profile: 'BIS IS 10500'});
+  alert(`Done! ${r.calculated} samples calculated. ${(r.errors||[]).length} errors.`);
+}
+
+loadUploads();
+</script>
+{% endblock %}

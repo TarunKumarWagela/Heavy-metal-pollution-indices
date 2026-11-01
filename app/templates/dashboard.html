@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Environmental Monitoring Dashboard{% endblock %}
+{% block page_subtitle %}Real-time groundwater quality overview — India{% endblock %}
+
+{% block content %}
+<!-- ========== STAT CARDS ========== -->
+<div class="row g-3 mb-4" id="statCards">
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon icon-teal"><i class="bi bi-droplet-fill"></i></div>
+      <div class="stat-value" id="statSamples">—</div>
+      <div class="stat-label">Total Samples</div>
+      <div class="stat-accent" style="background:var(--teal)"></div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon icon-navy"><i class="bi bi-geo-alt-fill"></i></div>
+      <div class="stat-value" id="statLocations">—</div>
+      <div class="stat-label">Monitoring Locations</div>
+      <div class="stat-accent" style="background:var(--navy)"></div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon icon-red"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div class="stat-value" id="statCritical">—</div>
+      <div class="stat-label">Critical HPI (&ge;100)</div>
+      <div class="stat-accent" style="background:var(--red)"></div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon icon-green"><i class="bi bi-map-fill"></i></div>
+      <div class="stat-value" id="statStates">—</div>
+      <div class="stat-label">States Covered</div>
+      <div class="stat-accent" style="background:var(--green)"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ROW 2: Charts ========== -->
+<div class="row g-3 mb-4">
+  <!-- State Distribution -->
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header-custom">
+        <i class="bi bi-bar-chart-fill"></i>
+        <h5>State-wise Sample Distribution</h5>
+      </div>
+      <div class="p-3 chart-container">
+        <div id="stateChart" style="height:280px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metal Averages -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header-custom">
+        <i class="bi bi-activity"></i>
+        <h5>Average Heavy Metal Concentrations (mg/L)</h5>
+      </div>
+      <div class="p-3 chart-container">
+        <div id="metalChart" style="height:280px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ROW 3: Recent Uploads + Quick Calc ========== -->
+<div class="row g-3 mb-4">
+  <!-- Recent Uploads -->
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header-custom">
+        <i class="bi bi-clock-history"></i>
+        <h5>Recent Dataset Uploads</h5>
+        <a href="/dataset/" class="ms-auto btn btn-sm btn-teal px-3">
+          <i class="bi bi-plus-circle"></i> Upload New
+        </a>
+      </div>
+      <div class="table-responsive p-0">
+        <table class="table table-scientific mb-0" id="recentUploadsTable">
+          <thead>
+            <tr>
+              <th>ID</th><th>Filename</th><th>Rows</th>
+              <th>Status</th><th>Uploaded</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="recentUploadsBody">
+            <tr><td colspan="6" class="text-center py-4 text-muted">
+              <div class="loading-spinner"><div class="spinner-border spinner-border-sm text-teal"></div> Loading…</div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Index Calculator -->
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header-custom">
+        <i class="bi bi-lightning-fill"></i>
+        <h5>Quick Index Calculator</h5>
+      </div>
+      <div class="p-3">
+        <div class="alert-scientific alert mb-3" role="alert">
+          <i class="bi bi-info-circle me-1"></i>
+          Enter measured concentrations and reference limits to compute HPI instantly.
+          Standards are loaded from your selected profile.
+        </div>
+
+        <div class="row g-2 mb-2">
+          <div class="col-4"><label class="form-label">Metal</label>
+            <input type="text" class="form-control" id="qMetal" placeholder="e.g. Pb" value="Pb"></div>
+          <div class="col-4"><label class="form-label">Measured (mg/L)</label>
+            <input type="number" step="any" class="form-control" id="qMeasured" value="0.015"></div>
+          <div class="col-4"><label class="form-label">Standard (mg/L)</label>
+            <input type="number" step="any" class="form-control" id="qStandard" value="0.01"></div>
+        </div>
+        <div class="d-flex gap-2 mb-2">
+          <button class="btn btn-sm btn-secondary" id="addMetalBtn"><i class="bi bi-plus"></i> Add Metal</button>
+          <button class="btn btn-sm btn-primary" id="calcHpiBtn"><i class="bi bi-calculator"></i> Calculate All Indices</button>
+        </div>
+        <div id="quickMetals" class="mb-2"></div>
+        <div id="quickResults"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ROW 4: Mini Map ========== -->
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header-custom">
+        <i class="bi bi-map"></i>
+        <h5>Sample Location Map</h5>
+        <a href="/gis" class="ms-auto btn btn-sm btn-outline-primary">
+          <i class="bi bi-fullscreen"></i> Full Map View
+        </a>
+      </div>
+      <div id="map" style="height:380px;"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ============================================================
+// Load dashboard stats
+// ============================================================
+async function loadStats() {
+  try {
+    const data = await apiGet('/api/dashboard/stats');
+    document.getElementById('statSamples').textContent = data.total_samples.toLocaleString();
+    document.getElementById('statLocations').textContent = data.total_locations.toLocaleString();
+    document.getElementById('statCritical').textContent = data.critical_hpi_samples.toLocaleString();
+    document.getElementById('statStates').textContent = data.total_states.toLocaleString();
+
+    renderStateChart(data.state_distribution);
+    renderMetalChart(data.metal_averages_mg_L);
+    renderRecentUploads(data.recent_uploads);
+  } catch(e) {
+    console.error('Stats load failed', e);
+  }
+}
+
+function renderStateChart(stateData) {
+  if (!stateData || stateData.length === 0) {
+    document.getElementById('stateChart').innerHTML =
+      '<p class="text-center text-muted mt-5 pt-3">No data yet. <a href="/dataset/">Upload a dataset</a>.</p>';
+    return;
+  }
+  const states = stateData.map(d => d.state);
+  const counts = stateData.map(d => d.count);
+  Plotly.newPlot('stateChart', [{
+    type: 'bar',
+    x: counts, y: states, orientation: 'h',
+    marker: {
+      color: counts,
+      colorscale: [[0,'#0D9488'],[0.5,'#2A5298'],[1,'#1F3D6E']],
+    },
+    text: counts, textposition: 'outside',
+  }], {
+    margin: {l:120, r:20, t:10, b:30},
+    xaxis: {title: 'Samples', gridcolor: '#E2E8F0'},
+    yaxis: {autorange: 'reversed'},
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {family: 'Inter', size: 11},
+    showlegend: false,
+  }, {responsive: true, displayModeBar: false});
+}
+
+function renderMetalChart(metalData) {
+  const metals = Object.keys(metalData).filter(k => metalData[k] !== null);
+  const vals = metals.map(k => metalData[k]);
+  if (!metals.length) {
+    document.getElementById('metalChart').innerHTML =
+      '<p class="text-center text-muted mt-5 pt-3">No concentration data yet.</p>';
+    return;
+  }
+  Plotly.newPlot('metalChart', [{
+    type: 'bar', x: metals, y: vals,
+    marker: { color: '#0D9488', opacity: 0.85 },
+    text: vals.map(v => v.toExponential(2)), textposition: 'outside',
+  }], {
+    margin: {l:60, r:20, t:10, b:30},
+    xaxis: {title: 'Metal'},
+    yaxis: {title: 'mg/L (avg)', type: 'log', gridcolor: '#E2E8F0'},
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {family: 'Inter', size: 11},
+    showlegend: false,
+  }, {responsive: true, displayModeBar: false});
+}
+
+function renderRecentUploads(uploads) {
+  const tbody = document.getElementById('recentUploadsBody');
+  if (!uploads || uploads.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">
+      No uploads yet. <a href="/dataset/">Upload your first dataset</a>.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = uploads.map(u => {
+    const statusMap = {
+      processed: 'badge-low', validated: 'badge-info',
+      pending: 'badge-moderate', error: 'badge-critical'
+    };
+    const sc = statusMap[u.status] || 'badge-info';
+    const dt = u.uploaded_at ? new Date(u.uploaded_at).toLocaleDateString('en-IN') : '—';
+    return `<tr>
+      <td><span class="text-muted">#${u.id}</span></td>
+      <td class="text-truncate" style="max-width: 180px;" title="${u.filename}"><i class="bi bi-file-earmark-text text-teal me-1"></i>${u.filename}</td>
+      <td>${(u.rows || 0).toLocaleString()}</td>
+      <td><span class="badge rounded-pill px-2 py-1 ${sc}">${u.status}</span></td>
+      <td>${dt}</td>
+      <td style="white-space: nowrap;">
+        <a href="/dataset/uploads/${u.id}/samples" class="btn btn-xs btn-outline-secondary btn-sm me-1" title="View Samples">
+          <i class="bi bi-eye"></i>
+        </a>
+        <button class="btn btn-xs btn-sm btn-teal" onclick="calcDataset(${u.id})" title="Calculate Indices">
+          <i class="bi bi-calculator"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function calcDataset(uploadId) {
+  if (!confirm(`Calculate indices for dataset #${uploadId}?`)) return;
+  const r = await apiPost(`/api/calculate/dataset/${uploadId}`, {});
+  alert(`Calculation complete: ${r.calculated} samples processed, ${r.errors?.length || 0} errors.`);
+}
+
+// ============================================================
+// Quick Calculator
+// ============================================================
+let quickMetals = [
+  {metal: 'Pb', measured: 0.015, standard: 0.01},
+  {metal: 'Cd', measured: 0.002, standard: 0.003},
+  {metal: 'Cr', measured: 0.030, standard: 0.05},
+];
+
+function renderQuickMetals() {
+  const div = document.getElementById('quickMetals');
+  if (quickMetals.length <= 1) { div.innerHTML = ''; return; }
+  div.innerHTML = `<div class="table-responsive">
+    <table class="table table-sm mb-0" style="font-size:.8rem">
+      <thead><tr><th>Metal</th><th>Measured</th><th>Standard</th><th></th></tr></thead>
+      <tbody>${quickMetals.slice(1).map((m, i) => `
+        <tr>
+          <td><input class="form-control form-control-sm" value="${m.metal}"
+               onchange="quickMetals[${i+1}].metal=this.value" style="width:70px"></td>
+          <td><input class="form-control form-control-sm" type="number" step="any" value="${m.measured}"
+               onchange="quickMetals[${i+1}].measured=+this.value" style="width:90px"></td>
+          <td><input class="form-control form-control-sm" type="number" step="any" value="${m.standard}"
+               onchange="quickMetals[${i+1}].standard=+this.value" style="width:90px"></td>
+          <td><button class="btn btn-sm btn-outline-danger" onclick="removeQuickMetal(${i+1})">
+            <i class="bi bi-trash"></i></button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+function removeQuickMetal(idx) {
+  quickMetals.splice(idx, 1); renderQuickMetals();
+}
+
+document.getElementById('addMetalBtn').addEventListener('click', () => {
+  const m = document.getElementById('qMetal').value.trim();
+  const c = parseFloat(document.getElementById('qMeasured').value);
+  const s = parseFloat(document.getElementById('qStandard').value);
+  if (!m || isNaN(c) || isNaN(s)) { alert('Fill all fields first'); return; }
+  quickMetals.push({metal: m, measured: c, standard: s});
+  renderQuickMetals();
+});
+
+document.getElementById('calcHpiBtn').addEventListener('click', async () => {
+  const measurements = {}, standards = {};
+  quickMetals.forEach(m => {
+    measurements[m.metal] = m.measured;
+    standards[m.metal] = m.standard;
+  });
+  const r = document.getElementById('quickResults');
+  r.innerHTML = '<div class="loading-spinner"><div class="spinner-border spinner-border-sm"></div> Calculating…</div>';
+  try {
+    const data = await apiPost('/api/calculate/all', {measurements, standards});
+    let html = '';
+    if (data.HPI && !data.HPI.error) {
+      html += `<div class="index-display mb-2">
+        <div class="idx-name">Heavy Metal Pollution Index</div>
+        <div class="idx-value">${fmtNum(data.HPI.hpi, 3)}</div>
+        <div class="idx-class">${data.HPI.classification}</div>
+      </div>`;
+    }
+    if (data.HEI && !data.HEI.error) {
+      html += `<div class="row g-2">
+        <div class="col-6">
+          <div class="card p-2 text-center">
+            <small class="text-muted">HEI</small>
+            <div class="fw-bold text-navy">${fmtNum(data.HEI.hei, 3)}</div>
+            <small>${data.HEI.classification}</small>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="card p-2 text-center">
+            <small class="text-muted">Cd Index</small>
+            <div class="fw-bold text-navy">${fmtNum(data.Cd_index?.cd_index, 3)}</div>
+            <small>${data.Cd_index?.classification || '—'}</small>
+          </div>
+        </div>
+      </div>`;
+    }
+    r.innerHTML = html || '<div class="text-muted small">No results</div>';
+  } catch(e) {
+    r.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+  }
+});
+
+// ============================================================
+// Mini Map
+// ============================================================
+const map = L.map('map', {scrollWheelZoom: false}).setView([22.5, 80], 4);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 18
+}).addTo(map);
+
+async function loadMapSamples() {
+  try {
+    const data = await apiGet('/api/gis/samples');
+    if (!data.features || data.features.length === 0) return;
+
+    data.features.forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const p = f.properties;
+      const marker = L.circleMarker([lat, lon], {
+        radius: 7, fillColor: '#0D9488',
+        color: '#1F3D6E', weight: 1.5,
+        opacity: 1, fillOpacity: 0.75,
+      }).addTo(map);
+      marker.bindPopup(`<b>${p.sample_id || 'Sample'}</b><br>
+        ${p.state || ''} — ${p.district || ''}<br>
+        <small>Fe: ${p.Fe||'—'} | As: ${p.As||'—'} | Pb: ${p.Pb||'—'} mg/L</small>`);
+    });
+  } catch(e) {
+    console.error('Map load failed', e);
+  }
+}
+
+// Init
+loadStats();
+loadMapSamples();
+renderQuickMetals();
+</script>
+{% endblock %}

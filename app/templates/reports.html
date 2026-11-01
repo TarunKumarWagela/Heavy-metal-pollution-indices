@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block page_title %}Report Generation{% endblock %}
+{% block page_subtitle %}Download PDF, Excel and CSV reports for groundwater quality assessments{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header-custom"><i class="bi bi-file-earmark-pdf-fill"></i><h5>Generate Reports</h5></div>
+      <div class="p-3">
+        <div class="mb-3">
+          <label class="form-label">Dataset (Upload ID)</label>
+          <input type="number" class="form-control" id="reportUploadId" placeholder="Enter Upload ID">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Report Format</label>
+          <div class="d-flex gap-2 flex-wrap">
+            <a id="csvLink" href="#" class="btn btn-outline-success flex-fill" onclick="exportCSV(event)">
+              <i class="bi bi-filetype-csv me-1"></i>Download CSV
+            </a>
+            <a id="xlsxLink" href="#" class="btn btn-outline-success flex-fill" onclick="exportExcel(event)">
+              <i class="bi bi-file-earmark-excel me-1"></i>Download Excel
+            </a>
+          </div>
+        </div>
+        <hr>
+        <div class="mb-3">
+          <label class="form-label">PDF Report for Sample</label>
+          <div class="input-group">
+            <input type="number" class="form-control" id="pdfSampleId" placeholder="Sample DB ID">
+            <a id="pdfLink" href="#" class="btn btn-outline-danger" onclick="exportPDF(event)">
+              <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header-custom"><i class="bi bi-info-circle"></i><h5>Report Contents</h5></div>
+      <div class="p-3 small">
+        <ul class="list-unstyled">
+          <li><i class="bi bi-check-circle-fill text-teal me-2"></i>Sample identification &amp; location</li>
+          <li><i class="bi bi-check-circle-fill text-teal me-2"></i>Heavy metal measurements</li>
+          <li><i class="bi bi-check-circle-fill text-teal me-2"></i>HPI, HEI &amp; Cd Index results</li>
+          <li><i class="bi bi-check-circle-fill text-teal me-2"></i>Metal contribution breakdown</li>
+          <li><i class="bi bi-check-circle-fill text-teal me-2"></i>Applied standards (BIS/WHO)</li>
+          <li><i class="bi bi-check-circle-fill text-teal me-2"></i>Scientific citations</li>
+          <li><i class="bi bi-check-circle-fill text-teal me-2"></i>Data quality warnings</li>
+          <li><i class="bi bi-check-circle-fill text-teal me-2"></i>Methodology disclaimer</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function exportCSV(e) {
+  e.preventDefault();
+  const id = document.getElementById('reportUploadId').value;
+  if (!id) { alert('Enter Upload ID'); return; }
+  window.location.href = `/api/export/csv/${id}`;
+}
+function exportExcel(e) {
+  e.preventDefault();
+  const id = document.getElementById('reportUploadId').value;
+  if (!id) { alert('Enter Upload ID'); return; }
+  window.location.href = `/api/export/excel/${id}`;
+}
+function exportPDF(e) {
+  e.preventDefault();
+  const id = document.getElementById('pdfSampleId').value;
+  if (!id) { alert('Enter Sample ID'); return; }
+  window.location.href = `/api/export/pdf/${id}`;
+}
+</script>
+{% endblock %}

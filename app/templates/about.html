@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+{% block page_title %}About HMPIAS{% endblock %}
+{% block page_subtitle %}Heavy Metal Pollution Index Assessment System — Project Overview{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header-custom"><i class="bi bi-info-circle-fill"></i><h5>Project Overview</h5></div>
+      <div class="p-3">
+        <p><b>HMPIAS</b> is a scientific web application for assessing heavy-metal contamination in Indian groundwater using scientifically documented pollution indices, machine learning, geographical visualization, and downloadable reports.</p>
+        <h6 class="text-navy fw-600">Scientific Indices Implemented</h6>
+        <ul>
+          <li><b>HPI</b> — Heavy Metal Pollution Index (Mohan et al., 1996)</li>
+          <li><b>HEI</b> — Heavy Metal Evaluation Index (Edet &amp; Offiong, 2002)</li>
+          <li><b>Cd Index</b> — Degree of Contamination (Backman et al., 1998)</li>
+          <li><b>CF, PLI, Igeo</b> — Soil/Sediment indices (Tomlinson et al., 1980; Müller, 1969)</li>
+        </ul>
+        <h6 class="text-navy fw-600">Standards Used</h6>
+        <ul>
+          <li>BIS IS 10500:2012 (Amendment 2019) — Indian drinking water standard</li>
+          <li>WHO GDWQ 4th ed. + addenda (2022) — International guideline</li>
+        </ul>
+        <h6 class="text-navy fw-600">Data Source</h6>
+        <p>Primary data source: <a href="https://nwdp.nwic.gov.in/" target="_blank">CGWB / National Water Data Portal</a></p>
+        <div class="alert-warning-sci alert" style="font-size:.8rem">
+          <b>⚠ Disclaimer:</b> Classification thresholds are literature-based and do not constitute regulatory determinations. BDL values are never silently set to zero. All calculation results record the standard version used.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header-custom"><i class="bi bi-stack"></i><h5>Technology Stack</h5></div>
+      <div class="p-3 small">
+        <b>Backend:</b> Python 3.14 · Flask 3 · SQLAlchemy · Flask-Migrate<br>
+        <b>Data:</b> Pandas · NumPy · scikit-learn · joblib<br>
+        <b>Reports:</b> ReportLab · openpyxl<br>
+        <b>Database:</b> SQLite (dev) → PostgreSQL-ready<br>
+        <b>Frontend:</b> Bootstrap 5 · Plotly.js · Leaflet.js<br>
+        <b>Map:</b> OpenStreetMap<br><br>
+        <b>Version:</b> 1.0.0<br>
+        <b>License:</b> Research use
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
